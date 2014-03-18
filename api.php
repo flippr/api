@@ -40,12 +40,7 @@ class API extends REST
 
     public $data = "";
 
-    const DB_SERVER   = "localhost";
-    const DB_USER     = "root";
-    const DB_PASSWORD = "arun";
-    const DB          = "users";
-
-    private $db = NULL;
+    private $db;
 
     public function __construct()
     {
@@ -58,9 +53,8 @@ class API extends REST
     */
     private function dbConnect()
     {
-        $this->db = mysql_connect(self::DB_SERVER, self::DB_USER, self::DB_PASSWORD);
-        if ($this->db)
-            mysql_select_db(self::DB, $this->db);
+        require_once('Config/Db.php');
+        $this->db = new Db();
     }
 
     /*
@@ -70,9 +64,13 @@ class API extends REST
      */
     public function processApi()
     {
-        $func = strtolower(trim(str_replace("/", "", $_REQUEST['rquest'])));
-        if ((int)method_exists($this, $func) > 0)
-            $this->$func();
+        $url        = $_SERVER['REQUEST_URI'];
+        $parts      = parse_url($url);
+        $path_parts = explode('/', $parts['path']);
+        $user       = $path_parts[2];
+
+        if ((int)method_exists($this, $user) > 0)
+            $this->$user();
         else
             $this->response('', 404); // If the method not exist with in this class, response would be "Page not found".
     }
@@ -127,16 +125,22 @@ class API extends REST
         {
             $this->response('', 406);
         }
-        $sql = mysql_query("SELECT user_id, user_fullname, user_email FROM users WHERE user_status = 1", $this->db);
-        if (mysql_num_rows($sql) > 0)
+        if ($stmt = $this->db->prepare("SELECT user_id, user_fullname, user_email FROM users WHERE user_status = 1"))
         {
-            $result = array();
-            while ($rlt = mysql_fetch_array($sql, MYSQL_ASSOC))
+            $stmt->execute();
+            $res = $stmt->fetchAll();
+            if ($stmt->rowCount() > 0)
             {
-                $result[] = $rlt;
+                foreach ($res as $row)
+                {
+                    $result[] = array(
+                        'user_id'       => $row['user_id'],
+                        'user_fullname' => $row['user_fullname'],
+                        'user_email'    => $row['user_email']
+                    );
+                }
+                $this->response($this->json($result), 200);
             }
-            // If success everythig is good send header as "OK" and return list of users in JSON format
-            $this->response($this->json($result), 200);
         }
         $this->response('', 204); // If no records "No Content" status
     }
