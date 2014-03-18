@@ -64,15 +64,33 @@ class API extends REST
      */
     public function processApi()
     {
+        $status     = array(
+            'request' => array(
+                'method' => $_SERVER['REQUEST_METHOD'],
+                'format' => 'json'
+            ),
+            'result'  => array(
+                'error' => 'Invalid consumer key'
+            )
+        );
         $url        = $_SERVER['REQUEST_URI'];
+        $url        = ltrim($url, '/');
         $parts      = parse_url($url);
         $path_parts = explode('/', $parts['path']);
-        $user       = $path_parts[2];
 
-        if ((int)method_exists($this, $user) > 0)
-            $this->$user();
+        if (count($path_parts) > 1)
+        {
+            $user = $path_parts[count($path_parts) - 1];
+            if ((int)method_exists($this, $user) > 0)
+                $this->$user();
+            else
+                $this->response($this->json($status), 404);
+
+        }
         else
-            $this->response('', 404); // If the method not exist with in this class, response would be "Page not found".
+        {
+            $this->response($this->json($status), 200);
+        }
     }
 
     /*
@@ -82,11 +100,12 @@ class API extends REST
      *  pwd : <USER PASSWORD>
      */
 
-    private function login()
+    /*private function login()
     {
         // Cross validation if the request method is POST else it will return "Not Acceptable" status
         if ($this->get_request_method() != "POST")
         {
+            $status = array('status' => http_response_code());
             $this->response('', 406);
         }
 
@@ -116,14 +135,23 @@ class API extends REST
             "msg"    => "Invalid Email address or Password"
         );
         $this->response($this->json($error), 400);
-    }
+    }*/
 
     private function users()
     {
         // Cross validation if the request method is GET else it will return "Not Acceptable" status
-        if ($this->get_request_method() != "GET")
+        if ($this->get_request_method() != "POST")
         {
-            $this->response('', 406);
+            $status = array(
+                'request' => array(
+                    'method' => $_SERVER['REQUEST_METHOD'],
+                    'format' => 'json'
+                ),
+                'result'  => array(
+                    'error' => 'Invalid request method'
+                )
+            );
+            $this->response($this->json($status), 406);
         }
         if ($stmt = $this->db->prepare("SELECT user_id, user_fullname, user_email FROM users WHERE user_status = 1"))
         {
@@ -139,7 +167,11 @@ class API extends REST
                         'user_email'    => $row['user_email']
                     );
                 }
-                $this->response($this->json($result), 200);
+                $output = array(
+                    'status' => http_response_code(),
+                    'users'  => $result
+                );
+                $this->response($this->json($output), 200);
             }
         }
         $this->response('', 204); // If no records "No Content" status

@@ -89,11 +89,11 @@ class REST
     {
         switch ($this->get_request_method())
         {
+            case "DELETE":
             case "POST":
                 $this->_request = $this->cleanInputs($_POST);
                 break;
             case "GET":
-            case "DELETE":
                 $this->_request = $this->cleanInputs($_GET);
                 break;
             case "PUT":
